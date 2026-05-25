@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔥 Scanner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff;padding:12px;padding-bottom:100px}
+.header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid #222}
+h1{font-size:22px;background:linear-gradient(90deg,#00d4aa,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.sub{font-size:12px;color:#888}
+.btn{background:linear-gradient(135deg,#00d4aa,#00b894);color:#000;border:none;padding:14px;border-radius:24px;font-weight:800;font-size:16px;width:100%;margin:10px 0;cursor:pointer}
+.btn.scanning{background:#ffa502;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.card{background:#111;border:1px solid #222;border-radius:16px;padding:14px;margin-bottom:10px;position:relative}
+.card:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:16px 0 0 16px}
+.card.hot:before{background:#00d4aa}.card.warm:before{background:#ffa502}.card.cold:before{background:#ff4757}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.token-name h3{font-size:16px}.sym{color:#888;font-size:11px;text-transform:uppercase}
+.score-badge{padding:4px 10px;border-radius:12px;font-weight:800;font-size:12px}
+.score-badge.hot{background:rgba(0,212,170,.15);color:#00d4aa}.score-badge.warm{background:rgba(255,165,2,.15);color:#ffa502}.score-badge.cold{background:rgba(255,71,87,.15);color:#ff4757}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.metric{background:rgba(255,255,255,.03);padding:8px;border-radius:8px;text-align:center}
+.metric label{display:block;font-size:9px;color:#888;text-transform:uppercase;margin-bottom:2px}.metric value{font-weight:700;font-size:13px}.up{color:#00d4aa}.down{color:#ff4757}
+.plan{background:rgba(255,255,255,.03);border-radius:10px;padding:10px;margin-top:8px}
+.plan-title{font-size:10px;color:#888;text-transform:uppercase;margin-bottom:6px;font-weight:700}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}.level label{font-size:9px;color:#888;display:block}.level value{font-weight:700;font-size:12px;display:block}.entry{color:#00d4aa}.stop{color:#ff4757}.target{color:#ffa502}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}.tag{font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:#aaa}.tag.hot{background:rgba(0,212,170,.1);color:#00d4aa}
+.links{display:flex;gap:6px;margin-top:10px}.links a{flex:1;background:rgba(255,255,255,.05);color:#fff;text-decoration:none;padding:8px;border-radius:8px;font-size:11px;font-weight:600;text-align:center;border:1px solid #222}
+.loading{text-align:center;padding:40px;color:#888}.spinner{width:36px;height:36px;border:3px solid #222;border-top-color:#00d4aa;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:50px 20px;color:#888}.error{background:#ff475722;border:1px solid #ff4757;border-radius:12px;padding:16px;margin:10px 0;color:#ff4757;font-size:13px}.error-title{font-weight:700;margin-bottom:4px}.demo-badge{display:inline-block;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:8px}
+</style>
+</head>
+<body>
+<div class="header"><h1>🔥 EXPLOSIVE SCANNER</h1><div class="sub">$200 Account | 50% Risk | -15% Stop | +100% Target</div></div>
+<button class="btn" id="scanBtn" onclick="doScan()">SCAN NOW</button>
+<div id="results"></div>
+<script>
+const DEMO_DATA=[
+{sym:"PEPE",name:"Pepe",price:.0000112,ch24:18.5,ch7:45.2,vol:52000000,mc:4700000000,volSpike:8.3,source:"Demo"},
+{sym:"FLOKI",name:"Floki Inu",price:.00018,ch24:12.3,ch7:32.1,vol:28000000,mc:1750000000,volSpike:5.7,source:"Demo"},
+{sym:"BONK",name:"Bonk",price:.000028,ch24:22.1,ch7:58.4,vol:45000000,mc:1900000000,volSpike:7.2,source:"Demo"},
+{sym:"BOME",name:"Book of Meme",price:.0085,ch24:35.2,ch7:120.5,vol:42000000,mc:470000000,volSpike:12.5,source:"Demo"},
+{sym:"TURBO",name:"Turbo",price:.0062,ch24:19.7,ch7:55.1,vol:15000000,mc:42000000,volSpike:7.5,source:"Demo"}];
+async function doScan(){
+ const btn=document.getElementById('scanBtn'), results=document.getElementById('results');
+ btn.classList.add('scanning');btn.textContent='SCANNING...';
+ results.innerHTML='<div class="loading"><div class="spinner"></div><div>Fetching live data...</div></div>';
+ let data=[],isDemo=false;
+ try{
+  const r=await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=1&sparkline=false&price_change_percentage=24h,7d');
+  if(!r.ok) throw new Error('API '+r.status);
+  data=processCoins(await r.json());
+ }catch(e){data=processDemo(DEMO_DATA);isDemo=true;}
+ data.sort((a,b)=>b.score-a.score);render(data,isDemo);
+ btn.classList.remove('scanning');btn.textContent='SCAN NOW';
+}
+function processCoins(coins){
+ const out=[];
+ for(const c of coins){
+  const mc=c.market_cap||0,vol=c.total_volume||0,price=c.current_price||0;
+  if(mc<1e6||mc>5e8||vol<1e5||!price)continue;
+  const ch24=c.price_change_percentage_24h_in_currency||c.price_change_percentage_24h||0;
+  if(ch24<3||ch24>300)continue;
+  const ch7=c.price_change_percentage_7d_in_currency||0;
+  const spike=vol/mc;
+  let score=0;
+  if(spike>.5)score+=30;else if(spike>.2)score+=22;else if(spike>.1)score+=14;
+  if(ch24>=5&&ch24<=50)score+=25;else if(ch24>=3)score+=20;else if(ch24>100)score+=8;
+  if(ch7>50)score+=15;else if(ch7>20)score+=10;else if(ch7>-10)score+=5;
+  if(mc<1e7)score+=15;else if(mc<5e7)score+=12;else if(mc<1e8)score+=8;else score+=5;
+  if(score>=20) out.push({sym:c.symbol.toUpperCase(),name:c.name,price,ch24,ch7,vol,mc,volSpike:(spike*10).toFixed(1),score:Math.min(score,100),pos:100,stop:price*.85,target:price*2,source:'CoinGecko'});
+ }
+ return out;
+}
+function processDemo(items){return items.map(t=>{let score=40;if(t.volSpike>5)score+=20;if(t.ch24>20)score+=15;if(t.mc<1e8)score+=10;return{...t,score:Math.min(score,100),pos:100,stop:t.price*.85,target:t.price*2}})}
+function pf(n){if(n<.00001)return n.toExponential(2);if(n<.01)return n.toFixed(8);if(n<1)return n.toFixed(5);return n.toFixed(4)}
+function render(data,isDemo){
+ const c=document.getElementById('results');
+ if(!data.length){c.innerHTML='<div class="empty">🔍<br>No opportunities found</div>';return}
+ let html=isDemo?'<div class="error"><div class="error-title">⚠️ Using Demo Data</div>CoinGecko API blocked. This is sample data only.</div>':'';
+ for(let i=0;i<Math.min(data.length,15);i++){
+  const t=data[i],tier=t.score>=60?'hot':t.score>=40?'warm':'cold',change=t.ch24>=0?'up':'down',ch7=(t.ch7||0)>=0?'up':'down';
+  html+=`<div class="card ${tier}"><div class="card-header"><div class="token-name"><h3>#${i+1} ${t.name}${isDemo?'<span class="demo-badge">DEMO</span>':''}</h3><div class="sym">${t.sym} • ${t.source}</div></div><div class="score-badge ${tier}">${t.score}/100</div></div>
+  <div class="metrics"><div class="metric"><label>Price</label><value>$${pf(t.price)}</value></div><div class="metric ${change}"><label>24h</label><value>${t.ch24>=0?'+':''}${t.ch24.toFixed(1)}%</value></div><div class="metric ${ch7}"><label>7d</label><value>${(t.ch7||0)>=0?'+':''}${(t.ch7||0).toFixed(1)}%</value></div><div class="metric"><label>Volume</label><value>$${(t.vol/1e6).toFixed(1)}M</value></div><div class="metric"><label>Spike</label><value>${t.volSpike}x</value></div><div class="metric"><label>MktCap</label><value>$${(t.mc/1e6).toFixed(1)}M</value></div></div>
+  <div class="plan"><div class="plan-title">📊 TRADE PLAN</div><div class="levels"><div class="level entry"><label>Entry</label><value>$${pf(t.price)}</value></div><div class="level stop"><label>Stop (-15%)</label><value>$${pf(t.stop)}</value></div><div class="level target"><label>Target (+100%)</label><value>$${pf(t.target)}</value></div></div><div style="text-align:center;margin-top:6px;font-size:11px;color:#888">Position: $${t.pos} • R/R: 6.7:1</div></div>
+  <div class="tags">${t.volSpike>5?'<span class="tag hot">Volume Explosion</span>':''}${t.ch24>20?'<span class="tag hot">Strong Momentum</span>':''}${t.mc<1e7?'<span class="tag">Micro Cap</span>':''}${t.ch7>50?'<span class="tag">Weekly Trend</span>':''}</div>
+  <div class="links"><a href="https://dexscreener.com/search?q=${encodeURIComponent(t.sym)}" target="_blank">🌊 Chart</a><a href="https://twitter.com/search?q=%24${encodeURIComponent(t.sym)}" target="_blank">🐦 X</a></div></div>`;
+ }
+ c.innerHTML=html;
+}
+window.onload=()=>{let d=processDemo(DEMO_DATA);d.sort((a,b)=>b.score-a.score);render(d,true)}
+</script>
+</body>
+</html>
